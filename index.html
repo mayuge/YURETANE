@@ -4,10 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f5f3ed">
-  <meta name="yuretane-api" content="">
+  <meta name="yuretane-api" content="https://yuretane.kei-tomo-kimi-ken.workers.dev">
   <title>ゆれたね — 地震の体験を共有する</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css" rel="stylesheet">
+  <style>.speech-bubble-marker{position:relative;display:flex;flex-direction:column;gap:2px;width:154px;max-height:78px;overflow:hidden;padding:8px 10px;border:1px solid #a9c9b4;border-radius:10px 10px 10px 3px;background:#fbfff9;box-shadow:0 3px 12px #34483a2e;color:#273a30;text-align:left;cursor:pointer}.speech-bubble-marker:after{position:absolute;bottom:-5px;left:-1px;width:9px;height:9px;border-bottom:1px solid #a9c9b4;border-left:1px solid #a9c9b4;background:#fbfff9;content:"";transform:skewY(-35deg)}.speech-bubble-mood{color:#24714f;font-size:9px;font-weight:800}.speech-bubble-text{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:2;font-size:10px;line-height:1.5}</style>
 </head>
 <body class="m-0 min-w-[320px] bg-[#f5f3ed] font-sans text-[#202923]">
   <main class="grid min-h-screen grid-cols-1 md:grid-cols-[370px_minmax(0,1fr)]">
@@ -27,7 +28,7 @@
         <textarea class="block min-h-[90px] w-full resize-y rounded-md border border-[#d8ded7] bg-white p-2.5 text-xs leading-[1.7] text-[#202923] outline-none placeholder:text-[#9aa39c] focus:border-[#43866d] focus:ring-2 focus:ring-[#43866d]/15" id="message" maxlength="1000" required placeholder="揺れたときのこと、いま感じていることを書いてください"></textarea>
         <input class="mt-[7px] block w-full rounded-md border border-[#d8ded7] bg-white p-2.5 text-xs text-[#202923] outline-none placeholder:text-[#9aa39c] focus:border-[#43866d] focus:ring-2 focus:ring-[#43866d]/15" id="nickname" maxlength="24" placeholder="ニックネーム（任意・匿名で投稿）">
         <button class="mt-2 min-h-[39px] w-full rounded-md bg-[#21694f] text-sm font-bold text-white hover:bg-[#18583f] disabled:cursor-wait disabled:opacity-55" id="submitButton" type="submit">この地震に投稿する</button>
-        <p class="mb-0 mt-[7px] text-[10px] leading-relaxed text-[#88928b]">投稿と場所は公開されます。自宅など居場所を特定できる地点は避け、個人情報は書かないでください。</p>
+        <p class="mb-0 mt-[7px] text-[10px] leading-relaxed text-[#88928b]">投稿と場所は公開され、24時間後に自動で消えます。自宅など居場所を特定できる地点は避けてください。</p>
         <p class="mb-0 mt-[7px] min-h-[17px] text-[11px] text-[#286d51]" id="notice" role="status"></p>
       </form>
       <p class="mt-[15px] pt-4 text-[9px] leading-relaxed text-[#909a92] md:mt-auto">地震情報：P2P地震情報 JSON API v2<br>地図の円は震源を示し、色と大きさは最大震度に対応します。</p>
@@ -68,6 +69,7 @@
     let map = null;
     let mapStyleReady = false;
     let sharedPosts = [];
+    let postBubbleMarkers = [];
     let selectedLocation = null;
     let selectingLocation = false;
     let selectionMarker = null;
@@ -77,13 +79,10 @@
       const style = await response.json();
       style.sources.v.tiles = ['https://cyberjapandata.gsi.go.jp/xyz/optimal_bvmap-v1/{z}/{x}/{y}.pbf'];
       style.sources.quake = {type:'geojson',data:{type:'FeatureCollection',features:quakeFeatures(recentQuakes)}};
-      style.sources.postLocations = {type:'geojson',data:{type:'FeatureCollection',features:postLocationFeatures(sharedPosts)}};
       style.layers.push(
         {id:'quake-halo',type:'circle',source:'quake',paint:{'circle-radius':['match',['get','label'],'1',20,'2',23,'3',27,'4',32,'5弱',37,'5強',42,'6弱',47,'6強',52,'7',60,24],'circle-color':['get','color'],'circle-opacity':.2,'circle-blur':.5}},
         {id:'quake-circle',type:'circle',source:'quake',paint:{'circle-radius':['match',['get','label'],'1',12,'2',14,'3',17,'4',20,'5弱',23,'5強',26,'6弱',29,'6強',32,'7',36,15],'circle-color':['get','color'],'circle-opacity':.94,'circle-stroke-color':'#fff','circle-stroke-width':2}},
         {id:'quake-label',type:'symbol',source:'quake',layout:{'text-field':['get','label'],'text-font':['NotoSansJP-Regular'],'text-size':13,'text-allow-overlap':true},paint:{'text-color':'#17231c'}},
-        {id:'post-location-halo',type:'circle',source:'postLocations',paint:{'circle-radius':13,'circle-color':'#21694f','circle-opacity':.22}},
-        {id:'post-location-dot',type:'circle',source:'postLocations',paint:{'circle-radius':6,'circle-color':'#21694f','circle-stroke-color':'#fff','circle-stroke-width':2}}
       );
       map = new maplibregl.Map({container:'map',style,center:[138,37],zoom:4.2,minZoom:2});
       map.addControl(new maplibregl.NavigationControl(), 'top-right');
@@ -93,12 +92,6 @@
       });
       map.on('mouseenter','quake-circle',() => { map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave','quake-circle',() => { map.getCanvas().style.cursor = ''; });
-      map.on('click','post-location-dot',event => {
-        const post = event.features[0].properties;
-        new maplibregl.Popup({offset:12}).setLngLat(event.lngLat).setHTML(`<strong>${escapeHtml(post.nickname || '匿名')} · ${escapeHtml(post.mood || 'ひとこと')}</strong><br>${escapeHtml(post.body)}`).addTo(map);
-      });
-      map.on('mouseenter','post-location-dot',() => { map.getCanvas().style.cursor = 'pointer'; });
-      map.on('mouseleave','post-location-dot',() => { map.getCanvas().style.cursor = ''; });
       map.on('click',event => {
         if (!selectingLocation) return;
         selectedLocation = {longitude:event.lngLat.lng,latitude:event.lngLat.lat};
@@ -115,6 +108,7 @@
       map.on('style.load', () => {
         mapStyleReady = true;
         if (recentQuakes.length) showQuakesOnMap(recentQuakes);
+        if (sharedPosts.length) showPostLocations(sharedPosts);
       });
     }
     const mapTab = document.getElementById('mapTab');
@@ -197,7 +191,36 @@
 
     function showPostLocations(posts) {
       sharedPosts = posts;
-      map?.getSource('postLocations')?.setData({type:'FeatureCollection',features:postLocationFeatures(posts)});
+      postBubbleMarkers.forEach(marker => marker.remove());
+      postBubbleMarkers = [];
+      if (!map) return;
+      for (const post of posts) {
+        const latitude = Number(post.latitude), longitude = Number(post.longitude);
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
+        const markerElement = document.createElement('button');
+        markerElement.type = 'button';
+        markerElement.className = 'speech-bubble-marker';
+        markerElement.setAttribute('aria-label', `${post.nickname || '匿名'}の投稿: ${post.body || ''}`);
+        const mood = document.createElement('span');
+        mood.className = 'speech-bubble-mood';
+        mood.textContent = `${post.nickname || '匿名'} · ${post.mood || 'ひとこと'}`;
+        const excerpt = document.createElement('span');
+        excerpt.className = 'speech-bubble-text';
+        excerpt.textContent = post.body || '';
+        markerElement.append(mood, excerpt);
+        const popupContent = document.createElement('div');
+        const heading = document.createElement('strong');
+        heading.textContent = `${post.nickname || '匿名'} · ${post.mood || 'ひとこと'}`;
+        const text = document.createElement('p');
+        text.textContent = post.body || '';
+        text.style.margin = '6px 0 0';
+        popupContent.append(heading, text);
+        const marker = new maplibregl.Marker({element:markerElement,anchor:'bottom'})
+          .setLngLat([longitude,latitude])
+          .setPopup(new maplibregl.Popup({offset:12}).setDOMContent(popupContent))
+          .addTo(map);
+        postBubbleMarkers.push(marker);
+      }
     }
 
     function focusPostLocation(post) {
@@ -273,7 +296,7 @@
         document.getElementById('quakeStatus').textContent = `最新100件 · ${recentQuakes.length}件を地図に表示 · 約1分ごとに更新`;
         document.getElementById('quakeCard').innerHTML = `<span class="text-[10px] text-[#748078]">最新の地震 · ${escapeHtml(eq.time || latest.time || '')}</span><div class="my-1.5 text-[17px] font-bold">${escapeHtml(hypo.name || '震源情報')}</div><div class="text-[11px] leading-[1.7] text-[#647168]"><span class="mr-1.5 inline-grid h-[30px] min-w-[38px] place-items-center rounded-full px-[7px] font-extrabold text-[#17231c] ${scaleTones[scale] || 'bg-[#d5ddd6]'}">最大震度 ${escapeHtml(scaleLabels[scale] || '不明')}</span>M${escapeHtml(hypo.magnitude ?? '—')} · 深さ ${escapeHtml(hypo.depth ?? '—')} km</div><div class="mt-2 text-[11px] font-bold text-[#536159]">${escapeHtml(tsunami)}</div>${observed.length ? `<div class="mt-2 border-t border-[#dce4db] pt-2"><strong class="text-[10px]">各地の震度</strong><div class="mt-1 grid grid-cols-2 gap-x-2 gap-y-1">${observed.map(point => `<span class="flex min-w-0 justify-between gap-1 text-[9px] text-[#647168]"><span class="truncate">${escapeHtml(point.pref || '')} ${escapeHtml(point.addr || '')}</span><b class="flex-none">震度${escapeHtml(scaleLabels[point.scale] || '不明')}</b></span>`).join('')}</div>${points.length > observed.length ? `<small class="mt-1 block text-[9px] text-[#748078]">ほか ${points.length - observed.length} 地点</small>` : ''}</div>` : ''}`;
         if (mapStyleReady) showQuakesOnMap(recentQuakes);
-        if (changed) await loadPosts(latest.id);
+        await loadPosts(latest.id);
       } catch (error) {
         document.getElementById('quakeStatus').textContent = '最新の地震情報を取得できませんでした';
         console.warn('P2P Quake API error:',error);
@@ -313,4 +336,6 @@
   </script>
 </body>
 </html>
+
+
 

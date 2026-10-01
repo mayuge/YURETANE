@@ -30,8 +30,9 @@ export default {
     if (url.pathname === "/api/posts" && request.method === "GET") {
       const quakeId = (url.searchParams.get("quakeId") || "").trim();
       if (!quakeId || quakeId.length > 128) return json({ error: "quakeId is required" }, 400, request);
+      await env.DB.prepare("DELETE FROM posts WHERE expires_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')").run();
       const { results } = await env.DB.prepare(
-        "SELECT id, nickname, mood, body, latitude, longitude, created_at FROM posts WHERE quake_id = ? ORDER BY created_at DESC LIMIT 100"
+        "SELECT id, nickname, mood, body, latitude, longitude, created_at, expires_at FROM posts WHERE quake_id = ? AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now') ORDER BY created_at DESC LIMIT 100"
       ).bind(quakeId).all();
       return json({ posts: results }, 200, request);
     }
@@ -51,7 +52,7 @@ export default {
         return json({ error: "地図上で投稿場所を選んでください" }, 400, request);
       }
       await env.DB.prepare(
-        "INSERT INTO posts (quake_id, quake_title, nickname, mood, body, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO posts (quake_id, quake_title, nickname, mood, body, latitude, longitude, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+24 hours'))"
       ).bind(quakeId, quakeTitle, nickname, mood, body, latitude, longitude).run();
       return json({ ok: true }, 201, request);
     }
@@ -59,5 +60,7 @@ export default {
     return env.ASSETS.fetch(request);
   },
 };
+
+
 
 

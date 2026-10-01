@@ -16,6 +16,10 @@
       <div class="font-serif text-[20px] font-extrabold text-[#21694f] md:text-[22px]">ゆれたね<small class="mt-1 block font-sans text-[11px] font-normal text-[#77837a]">地震の体験を、近くの誰かと分け合う場所</small></div>
       <h1 class="mb-1 mt-4 font-serif text-xl leading-relaxed md:mb-2 md:mt-[27px] md:text-[23px]">揺れたね。<br>そのときの声を聞かせて。</h1>
       <p class="mb-2 text-xs leading-[1.8] text-[#65716a] md:mb-[18px]">地震にあった人同士で、感じたことを共有できます。読むだけでも、ひとこと残すだけでも大丈夫です。</p>
+      <aside class="mb-3 rounded-r-md border-l-4 border-[#b34b37] bg-[#f9e9df] px-3 py-2.5 text-[#5c3027]" role="note" aria-label="避難に関する注意">
+        <p class="m-0 text-xs font-bold">安全確保と避難を最優先に。</p>
+        <p class="mb-0 mt-1 text-[10px] leading-relaxed">危険を感じたら投稿や閲覧を中断し、避難してください。自治体・気象庁の情報に従ってください。</p>
+      </aside>
       <div class="mb-3 rounded-md border border-[#e2e5dc] px-2.5 py-[9px] text-[11px] text-[#66736b] md:mb-4" id="quakeStatus">最新の地震情報を確認しています…</div>
       <section class="rounded-lg bg-[#edf3ec] p-3.5" id="quakeCard"><span class="text-[10px] text-[#748078]">最新の地震</span><div class="my-1.5 text-[17px] font-bold">読み込み中</div></section>
       <div class="mt-4 flex flex-wrap gap-[5px]" id="legend" aria-label="震度の凡例"></div>
@@ -27,7 +31,7 @@
         <div class="mb-2 flex items-center gap-2"><button class="flex-none rounded border border-[#d8ded7] bg-white px-2.5 py-2 text-[10px] font-semibold text-[#21694f] hover:border-[#559078]" id="locationButton" type="button" aria-pressed="false">⌖ 地図で場所を選ぶ</button><span class="min-w-0 text-[10px] leading-relaxed text-[#78847b]" id="locationStatus">投稿場所を地図上で指定してください</span></div>
         <textarea class="block min-h-[90px] w-full resize-y rounded-md border border-[#d8ded7] bg-white p-2.5 text-xs leading-[1.7] text-[#202923] outline-none placeholder:text-[#9aa39c] focus:border-[#43866d] focus:ring-2 focus:ring-[#43866d]/15" id="message" maxlength="1000" required placeholder="揺れたときのこと、いま感じていることを書いてください"></textarea>
         <input class="mt-[7px] block w-full rounded-md border border-[#d8ded7] bg-white p-2.5 text-xs text-[#202923] outline-none placeholder:text-[#9aa39c] focus:border-[#43866d] focus:ring-2 focus:ring-[#43866d]/15" id="nickname" maxlength="24" placeholder="ニックネーム（任意・匿名で投稿）">
-        <button class="mt-2 min-h-[39px] w-full rounded-md bg-[#21694f] text-sm font-bold text-white hover:bg-[#18583f] disabled:cursor-wait disabled:opacity-55" id="submitButton" type="submit">この地震に投稿する</button>
+        <button class="mt-2 min-h-[39px] w-full rounded-md bg-[#21694f] text-sm font-bold text-white hover:bg-[#18583f] disabled:cursor-wait disabled:opacity-55" id="submitButton" type="submit">投稿する</button>
         <p class="mb-0 mt-[7px] text-[10px] leading-relaxed text-[#88928b]">投稿と場所は公開され、24時間後に自動で消えます。自宅など居場所を特定できる地点は避けてください。</p>
         <p class="mb-0 mt-[7px] min-h-[17px] text-[11px] text-[#286d51]" id="notice" role="status"></p>
       </form>

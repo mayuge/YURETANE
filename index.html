@@ -1,0 +1,316 @@
+﻿<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f3ed">
+  <meta name="yuretane-api" content="">
+  <title>ゆれたね — 地震の体験を共有する</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css" rel="stylesheet">
+</head>
+<body class="m-0 min-w-[320px] bg-[#f5f3ed] font-sans text-[#202923]">
+  <main class="grid min-h-screen grid-cols-1 md:grid-cols-[370px_minmax(0,1fr)]">
+    <aside class="order-2 flex flex-col border-t border-[#d9ded5] bg-[#fbfaf6] px-4 py-[18px] md:order-1 md:h-screen md:max-h-screen md:min-h-0 md:overflow-y-auto md:border-r md:border-t-0 md:px-[22px] md:pb-4 md:pt-[25px]">
+      <div class="font-serif text-[20px] font-extrabold text-[#21694f] md:text-[22px]">ゆれたね<small class="mt-1 block font-sans text-[11px] font-normal text-[#77837a]">地震の体験を、近くの誰かと分け合う場所</small></div>
+      <h1 class="mb-1 mt-4 font-serif text-xl leading-relaxed md:mb-2 md:mt-[27px] md:text-[23px]">揺れたね。<br>そのときの声を聞かせて。</h1>
+      <p class="mb-2 text-xs leading-[1.8] text-[#65716a] md:mb-[18px]">地震にあった人同士で、感じたことを共有できます。読むだけでも、ひとこと残すだけでも大丈夫です。</p>
+      <div class="mb-3 rounded-md border border-[#e2e5dc] px-2.5 py-[9px] text-[11px] text-[#66736b] md:mb-4" id="quakeStatus">最新の地震情報を確認しています…</div>
+      <section class="rounded-lg bg-[#edf3ec] p-3.5" id="quakeCard"><span class="text-[10px] text-[#748078]">最新の地震</span><div class="my-1.5 text-[17px] font-bold">読み込み中</div></section>
+      <div class="mt-4 flex flex-wrap gap-[5px]" id="legend" aria-label="震度の凡例"></div>
+      <form class="mt-5 border-t border-[#e1e4dc] pt-4" id="postForm">
+        <div class="mb-2 flex items-baseline justify-between"><h2 class="text-sm font-bold">いまの気持ち</h2><span class="text-[10px] text-[#859087]">名前なしで投稿できます</span></div>
+        <div class="mb-2 flex flex-wrap gap-[5px]" role="group" aria-label="気持ちを選ぶ">
+          <button class="mood rounded-full border border-[#2c795e] bg-[#e4f1e9] px-2 py-[5px] text-[10px] text-[#195a43]" type="button" aria-pressed="true">びっくり</button><button class="mood rounded-full border border-[#d8ded7] px-2 py-[5px] text-[10px] text-[#59675f]" type="button" aria-pressed="false">不安</button><button class="mood rounded-full border border-[#d8ded7] px-2 py-[5px] text-[10px] text-[#59675f]" type="button" aria-pressed="false">無事です</button><button class="mood rounded-full border border-[#d8ded7] px-2 py-[5px] text-[10px] text-[#59675f]" type="button" aria-pressed="false">落ち着いた</button>
+        </div>
+        <div class="mb-2 flex items-center gap-2"><button class="flex-none rounded border border-[#d8ded7] bg-white px-2.5 py-2 text-[10px] font-semibold text-[#21694f] hover:border-[#559078]" id="locationButton" type="button" aria-pressed="false">⌖ 地図で場所を選ぶ</button><span class="min-w-0 text-[10px] leading-relaxed text-[#78847b]" id="locationStatus">投稿場所を地図上で指定してください</span></div>
+        <textarea class="block min-h-[90px] w-full resize-y rounded-md border border-[#d8ded7] bg-white p-2.5 text-xs leading-[1.7] text-[#202923] outline-none placeholder:text-[#9aa39c] focus:border-[#43866d] focus:ring-2 focus:ring-[#43866d]/15" id="message" maxlength="1000" required placeholder="揺れたときのこと、いま感じていることを書いてください"></textarea>
+        <input class="mt-[7px] block w-full rounded-md border border-[#d8ded7] bg-white p-2.5 text-xs text-[#202923] outline-none placeholder:text-[#9aa39c] focus:border-[#43866d] focus:ring-2 focus:ring-[#43866d]/15" id="nickname" maxlength="24" placeholder="ニックネーム（任意・匿名で投稿）">
+        <button class="mt-2 min-h-[39px] w-full rounded-md bg-[#21694f] text-sm font-bold text-white hover:bg-[#18583f] disabled:cursor-wait disabled:opacity-55" id="submitButton" type="submit">この地震に投稿する</button>
+        <p class="mb-0 mt-[7px] text-[10px] leading-relaxed text-[#88928b]">投稿と場所は公開されます。自宅など居場所を特定できる地点は避け、個人情報は書かないでください。</p>
+        <p class="mb-0 mt-[7px] min-h-[17px] text-[11px] text-[#286d51]" id="notice" role="status"></p>
+      </form>
+      <p class="mt-[15px] pt-4 text-[9px] leading-relaxed text-[#909a92] md:mt-auto">地震情報：P2P地震情報 JSON API v2<br>地図の円は震源を示し、色と大きさは最大震度に対応します。</p>
+    </aside>
+    <section class="order-1 flex h-[48dvh] min-h-[324px] min-w-0 flex-col md:order-2 md:h-screen md:min-h-0">
+      <div class="flex h-11 flex-none border-b border-[#d9ded5] bg-[#fbfaf6]" role="tablist" aria-label="表示切り替え">
+        <button class="border-b-2 border-[#21694f] px-3 text-[11px] font-bold text-[#21694f] md:px-5 md:text-xs" id="mapTab" type="button" role="tab" aria-selected="true" aria-controls="mapPanel">地図</button>
+        <button class="flex items-center gap-1.5 border-b-2 border-transparent px-3 text-[11px] font-semibold text-[#65716a] hover:text-[#21694f] md:gap-2 md:px-5 md:text-xs" id="quakesTab" type="button" role="tab" aria-selected="false" aria-controls="quakesPanel">地震一覧<span class="rounded-full bg-[#e4f1e9] px-1.5 py-0.5 text-[9px] text-[#21694f] md:text-[10px]" id="quakeCount">0</span></button>
+        <button class="flex items-center gap-1.5 border-b-2 border-transparent px-3 text-[11px] font-semibold text-[#65716a] hover:text-[#21694f] md:gap-2 md:px-5 md:text-xs" id="postsTab" type="button" role="tab" aria-selected="false" aria-controls="postsPanel">投稿一覧<span class="rounded-full bg-[#e4f1e9] px-1.5 py-0.5 text-[9px] text-[#21694f] md:text-[10px]" id="postCount"></span></button>
+      </div>
+      <div class="min-h-[280px] flex-1 bg-[#e4e9df]" id="mapPanel" role="tabpanel" aria-labelledby="mapTab">
+        <div class="h-full min-h-[280px] w-full" id="map" aria-label="地震情報と投稿の地図"></div>
+      </div>
+      <div class="hidden min-h-[280px] flex-1 overflow-y-auto bg-[#f5f3ed]" id="quakesPanel" role="tabpanel" aria-labelledby="quakesTab" tabindex="0">
+        <div class="mx-auto w-full max-w-[900px] px-[14px] pb-6 pt-[17px] md:px-9 md:pb-[35px] md:pt-[19px]">
+          <div class="mb-3 flex items-baseline justify-between"><h2 class="text-[15px] font-bold">最近の地震</h2><span class="text-[10px] text-[#78847b]">最新100件まで取得</span></div>
+          <div class="grid gap-2" id="quakes"><div class="rounded-md border border-dashed border-[#d6ddd4] px-3 py-[21px] text-center text-xs leading-relaxed text-[#78847b]">地震情報を読み込んでいます…</div></div>
+        </div>
+      </div>
+      <div class="hidden min-h-[280px] flex-1 overflow-y-auto bg-[#f5f3ed]" id="postsPanel" role="tabpanel" aria-labelledby="postsTab" tabindex="0">
+        <div class="mx-auto w-full max-w-[900px] px-[14px] pb-6 pt-[17px] md:px-9 md:pb-[35px] md:pt-[19px]">
+          <h2 class="mb-3 text-[15px] font-bold">この地震にあった人の声</h2>
+          <div class="grid gap-2" id="posts"><div class="rounded-md border border-dashed border-[#d6ddd4] px-3 py-[21px] text-center text-xs leading-relaxed text-[#78847b]">地震情報を読み込んでいます…</div></div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <div class="hidden" aria-hidden="true"><span class="bg-[#9bdcf2] bg-[#54b9e8] bg-[#55cf9d] bg-[#f1d94e] bg-[#f5a440] bg-[#f36c42] bg-[#e94159] bg-[#bd398d] bg-[#8b4bc4]"></span></div>
+  <script src="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.js"></script>
+  <script>
+    const QUAKES_URL = 'https://api.p2pquake.net/v2/history?codes=551&limit=100';
+    const API_BASE = document.querySelector('meta[name="yuretane-api"]').content.trim().replace(/\/+$/, '');
+    const API = `${API_BASE}/api/posts`;
+    const scaleLabels = {10:'1',20:'2',30:'3',40:'4',45:'5弱',46:'5弱',50:'5強',55:'6弱',60:'6強',70:'7'};
+    const scaleColors = {10:'#9bdcf2',20:'#54b9e8',30:'#55cf9d',40:'#f1d94e',45:'#f5a440',46:'#f5a440',50:'#f36c42',55:'#e94159',60:'#bd398d',70:'#8b4bc4'};
+    const scaleTones = {10:'bg-[#9bdcf2]',20:'bg-[#54b9e8]',30:'bg-[#55cf9d]',40:'bg-[#f1d94e]',45:'bg-[#f5a440]',46:'bg-[#f5a440]',50:'bg-[#f36c42]',55:'bg-[#e94159]',60:'bg-[#bd398d]',70:'bg-[#8b4bc4]'};
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    let map = null;
+    let mapStyleReady = false;
+    let sharedPosts = [];
+    let selectedLocation = null;
+    let selectingLocation = false;
+    let selectionMarker = null;
+    async function initializeMap() {
+      const response = await fetch('https://gsi-cyberjapan.github.io/optimal_bvmap/style/std.json');
+      if (!response.ok) throw new Error(`地図スタイルを取得できません: HTTP ${response.status}`);
+      const style = await response.json();
+      style.sources.v.tiles = ['https://cyberjapandata.gsi.go.jp/xyz/optimal_bvmap-v1/{z}/{x}/{y}.pbf'];
+      style.sources.quake = {type:'geojson',data:{type:'FeatureCollection',features:quakeFeatures(recentQuakes)}};
+      style.sources.postLocations = {type:'geojson',data:{type:'FeatureCollection',features:postLocationFeatures(sharedPosts)}};
+      style.layers.push(
+        {id:'quake-halo',type:'circle',source:'quake',paint:{'circle-radius':['match',['get','label'],'1',20,'2',23,'3',27,'4',32,'5弱',37,'5強',42,'6弱',47,'6強',52,'7',60,24],'circle-color':['get','color'],'circle-opacity':.2,'circle-blur':.5}},
+        {id:'quake-circle',type:'circle',source:'quake',paint:{'circle-radius':['match',['get','label'],'1',12,'2',14,'3',17,'4',20,'5弱',23,'5強',26,'6弱',29,'6強',32,'7',36,15],'circle-color':['get','color'],'circle-opacity':.94,'circle-stroke-color':'#fff','circle-stroke-width':2}},
+        {id:'quake-label',type:'symbol',source:'quake',layout:{'text-field':['get','label'],'text-font':['NotoSansJP-Regular'],'text-size':13,'text-allow-overlap':true},paint:{'text-color':'#17231c'}},
+        {id:'post-location-halo',type:'circle',source:'postLocations',paint:{'circle-radius':13,'circle-color':'#21694f','circle-opacity':.22}},
+        {id:'post-location-dot',type:'circle',source:'postLocations',paint:{'circle-radius':6,'circle-color':'#21694f','circle-stroke-color':'#fff','circle-stroke-width':2}}
+      );
+      map = new maplibregl.Map({container:'map',style,center:[138,37],zoom:4.2,minZoom:2});
+      map.addControl(new maplibregl.NavigationControl(), 'top-right');
+      map.on('click','quake-circle',event => {
+        const point = event.features[0].properties;
+        new maplibregl.Popup({offset:12}).setLngLat(event.lngLat).setHTML(`<strong>${escapeHtml(point.place)}</strong><br>震度 ${escapeHtml(point.label)}<br>${escapeHtml(point.time)}`).addTo(map);
+      });
+      map.on('mouseenter','quake-circle',() => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave','quake-circle',() => { map.getCanvas().style.cursor = ''; });
+      map.on('click','post-location-dot',event => {
+        const post = event.features[0].properties;
+        new maplibregl.Popup({offset:12}).setLngLat(event.lngLat).setHTML(`<strong>${escapeHtml(post.nickname || '匿名')} · ${escapeHtml(post.mood || 'ひとこと')}</strong><br>${escapeHtml(post.body)}`).addTo(map);
+      });
+      map.on('mouseenter','post-location-dot',() => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave','post-location-dot',() => { map.getCanvas().style.cursor = ''; });
+      map.on('click',event => {
+        if (!selectingLocation) return;
+        selectedLocation = {longitude:event.lngLat.lng,latitude:event.lngLat.lat};
+        selectingLocation = false;
+        selectionMarker?.remove();
+        const markerElement = document.createElement('div');
+        markerElement.className = 'size-4 rounded-full border-2 border-white bg-[#f36c42] shadow';
+        selectionMarker = new maplibregl.Marker({element:markerElement,anchor:'center'}).setLngLat([selectedLocation.longitude,selectedLocation.latitude]).addTo(map);
+        document.getElementById('locationButton').setAttribute('aria-pressed','false');
+        document.getElementById('locationButton').textContent = '⌖ 場所を変更';
+        document.getElementById('locationStatus').textContent = `選択中: ${selectedLocation.latitude.toFixed(3)}, ${selectedLocation.longitude.toFixed(3)}`;
+        document.getElementById('notice').textContent = '';
+      });
+      map.on('style.load', () => {
+        mapStyleReady = true;
+        if (recentQuakes.length) showQuakesOnMap(recentQuakes);
+      });
+    }
+    const mapTab = document.getElementById('mapTab');
+    const quakesTab = document.getElementById('quakesTab');
+    const postsTab = document.getElementById('postsTab');
+    const mapPanel = document.getElementById('mapPanel');
+    const quakesPanel = document.getElementById('quakesPanel');
+    const postsPanel = document.getElementById('postsPanel');
+    function selectTab(selected) {
+      const tabs = [[mapTab,'map'],[quakesTab,'quakes'],[postsTab,'posts']];
+      const panels = [[mapPanel,'map'],[quakesPanel,'quakes'],[postsPanel,'posts']];
+      for (const [tab,name] of tabs) {
+        const active = name === selected;
+        tab.setAttribute('aria-selected', String(active));
+        tab.classList.toggle('border-[#21694f]', active);
+        tab.classList.toggle('border-transparent', !active);
+        tab.classList.toggle('text-[#21694f]', active);
+        tab.classList.toggle('text-[#65716a]', !active);
+        tab.classList.toggle('font-bold', active);
+        tab.classList.toggle('font-semibold', !active);
+      }
+      for (const [panel,name] of panels) panel.classList.toggle('hidden', name !== selected);
+      if (selected === 'map' && map) requestAnimationFrame(() => map.resize());
+    }
+    mapTab.addEventListener('click', () => selectTab('map'));
+    quakesTab.addEventListener('click', () => selectTab('quakes'));
+    postsTab.addEventListener('click', () => selectTab('posts'));
+    document.getElementById('locationButton').addEventListener('click', () => {
+      selectingLocation = !selectingLocation;
+      const button = document.getElementById('locationButton');
+      button.setAttribute('aria-pressed', String(selectingLocation));
+      if (selectingLocation) {
+        selectedLocation = null;
+        selectionMarker?.remove();
+        selectionMarker = null;
+        button.textContent = '地図をクリックして決定';
+        document.getElementById('locationStatus').textContent = '地図上の場所をクリックしてください';
+        document.getElementById('notice').textContent = '';
+        selectTab('map');
+      } else {
+        button.textContent = selectedLocation ? '⌖ 場所を変更' : '⌖ 地図で場所を選ぶ';
+        document.getElementById('locationStatus').textContent = selectedLocation ? `選択中: ${selectedLocation.latitude.toFixed(3)}, ${selectedLocation.longitude.toFixed(3)}` : '投稿場所を地図上で指定してください';
+      }
+    });
+    const legend = document.getElementById('legend');
+    legend.innerHTML = Object.keys(scaleLabels).filter(code => code !== '46').map(code => `<span class="rounded-full px-[7px] py-1 text-[10px] font-bold text-[#17231c] ${scaleTones[code]}">震度${scaleLabels[code]}</span>`).join('');
+    let quake = null;
+    let recentQuakes = [];
+    let selectedMood = 'びっくり';
+    document.querySelectorAll('.mood').forEach(button => button.addEventListener('click', () => {
+      selectedMood = button.textContent;
+      document.querySelectorAll('.mood').forEach(item => {
+        const active = item === button;
+        item.setAttribute('aria-pressed', String(active));
+        item.classList.toggle('border-[#2c795e]', active);
+        item.classList.toggle('bg-[#e4f1e9]', active);
+        item.classList.toggle('text-[#195a43]', active);
+        item.classList.toggle('border-[#d8ded7]', !active);
+        item.classList.toggle('text-[#59675f]', !active);
+      });
+    }));
+    function quakeFeatures(items) {
+      return items.flatMap(item => {
+        const hypo = item.earthquake?.hypocenter || {};
+        const longitude = Number(hypo.longitude), latitude = Number(hypo.latitude);
+        if (!Number.isFinite(longitude) || !Number.isFinite(latitude) || longitude === -200 || latitude === -200) return [];
+        const scale = Number(item.earthquake.maxScale);
+        return [{type:'Feature',geometry:{type:'Point',coordinates:[longitude,latitude]},properties:{label:scaleLabels[scale] || '？',color:scaleColors[scale] || '#87948a',place:hypo.name || '震源',time:item.earthquake.time || item.time || ''}}];
+      });
+    }
+
+    function postLocationFeatures(posts) {
+      return posts.flatMap(post => {
+        if (post.latitude == null || post.longitude == null) return [];
+        const latitude = Number(post.latitude), longitude = Number(post.longitude);
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return [];
+        return [{type:'Feature',geometry:{type:'Point',coordinates:[longitude,latitude]},properties:{nickname:post.nickname || '匿名',mood:post.mood || 'ひとこと',body:post.body || ''}}];
+      });
+    }
+
+    function showPostLocations(posts) {
+      sharedPosts = posts;
+      map?.getSource('postLocations')?.setData({type:'FeatureCollection',features:postLocationFeatures(posts)});
+    }
+
+    function focusPostLocation(post) {
+      const latitude = Number(post.latitude), longitude = Number(post.longitude);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+      selectTab('map');
+      map?.flyTo({center:[longitude,latitude],zoom:Math.max(map.getZoom(),8),duration:650});
+      new maplibregl.Popup({offset:12}).setLngLat([longitude,latitude]).setHTML(`<strong>${escapeHtml(post.nickname || '匿名')} · ${escapeHtml(post.mood || 'ひとこと')}</strong><br>${escapeHtml(post.body)}`).addTo(map);
+    }
+
+    function showQuakesOnMap(items) {
+      const source = map?.getSource('quake');
+      if (source) source.setData({type:'FeatureCollection',features:quakeFeatures(items)});
+    }
+
+    function renderQuakeList(items) {
+      document.getElementById('quakeCount').textContent = String(items.length);
+      const list = document.getElementById('quakes');
+      if (!items.length) {
+        list.innerHTML = '<div class="rounded-md border border-dashed border-[#d6ddd4] px-3 py-[21px] text-center text-xs leading-relaxed text-[#78847b]">表示できる地震情報はありません。</div>';
+        return;
+      }
+      list.innerHTML = items.map((item,index) => {
+        const eq = item.earthquake || {}, hypo = eq.hypocenter || {};
+        const magnitude = Number(hypo.magnitude), depth = Number(hypo.depth);
+        const time = eq.time || item.time || '';
+        return `<button class="rounded-md border border-[#e2e5dd] bg-white p-3 text-left hover:border-[#74a18b]" type="button" data-quake-index="${index}"><span class="flex items-center justify-between gap-2"><strong class="truncate text-sm text-[#303a33]">${escapeHtml(hypo.name || '震源情報')}</strong><span class="flex-none rounded-full px-2 py-1 text-[10px] font-bold text-[#17231c] ${scaleTones[eq.maxScale] || 'bg-[#d5ddd6]'}">震度${escapeHtml(scaleLabels[eq.maxScale] || '不明')}</span></span><span class="mt-1 block text-[10px] text-[#78847b]">${escapeHtml(time)}</span><span class="mt-1 block text-[10px] text-[#647168]">M${Number.isFinite(magnitude) && magnitude >= 0 ? magnitude.toFixed(1) : '—'} · 深さ ${Number.isFinite(depth) && depth >= 0 ? `${depth} km` : '不明'}</span></button>`;
+      }).join('');
+      list.querySelectorAll('[data-quake-index]').forEach(button => button.addEventListener('click', () => focusQuake(items[Number(button.dataset.quakeIndex)])));
+    }
+
+    function focusQuake(item) {
+      const hypo = item.earthquake?.hypocenter || {};
+      const longitude = Number(hypo.longitude), latitude = Number(hypo.latitude);
+      selectTab('map');
+      if (!Number.isFinite(longitude) || !Number.isFinite(latitude) || longitude === -200 || latitude === -200) return;
+      map?.flyTo({center:[longitude,latitude],zoom:Math.max(map.getZoom(),7),duration:650});
+      new maplibregl.Popup({offset:12}).setLngLat([longitude,latitude]).setHTML(`<strong>${escapeHtml(hypo.name || '震源情報')}</strong><br>震度 ${escapeHtml(scaleLabels[item.earthquake.maxScale] || '不明')} · M${escapeHtml(hypo.magnitude ?? '—')}<br>${escapeHtml(item.earthquake.time || item.time || '')}`).addTo(map);
+    }
+    async function loadPosts(quakeId) {
+      try {
+        const response = await fetch(`${API}?quakeId=${encodeURIComponent(quakeId)}`,{cache:'no-store'});
+        if (!response.ok) throw new Error('API unavailable');
+        const data = await response.json();
+        const posts = Array.isArray(data.posts) ? data.posts : [];
+        document.getElementById('postCount').textContent = `${posts.length} 件`;
+        document.getElementById('posts').innerHTML = posts.length ? posts.map(post => `<article class="rounded-md border border-[#e2e5dd] bg-white p-3"><div class="mb-1 flex flex-wrap items-center gap-[7px] text-[10px] text-[#78847b]"><strong class="font-bold text-[#303a33]">${escapeHtml(post.nickname || '匿名')}</strong><span class="font-bold text-[#287456]">${escapeHtml(post.mood || 'ひとこと')}</span><time>${escapeHtml(new Date(post.created_at).toLocaleString('ja-JP',{dateStyle:'short',timeStyle:'short'}))}</time></div><p class="m-0 whitespace-pre-wrap break-words text-xs leading-[1.75] text-[#303a33]">${escapeHtml(post.body)}</p>${post.latitude != null && post.longitude != null ? `<button class="mt-2 rounded border border-[#d8ded7] px-2 py-1 text-[10px] font-semibold text-[#21694f] hover:border-[#559078]" type="button" data-post-index="${escapeHtml(post.id)}">⌖ 場所を見る</button>` : ''}</article>`).join('') : '<div class="rounded-md border border-dashed border-[#d6ddd4] px-3 py-[21px] text-center text-xs leading-relaxed text-[#78847b]">まだ投稿はありません。あなたのひとことから始めてみませんか？</div>';
+        showPostLocations(posts);
+        document.querySelectorAll('[data-post-index]').forEach(button => button.addEventListener('click', () => {
+          const post = posts.find(item => String(item.id) === button.dataset.postIndex);
+          if (post) focusPostLocation(post);
+        }));
+      } catch {
+        document.getElementById('postCount').textContent = '';
+        document.getElementById('posts').innerHTML = '<div class="rounded-md border border-dashed border-[#d6ddd4] px-3 py-[21px] text-center text-xs leading-relaxed text-[#78847b]">投稿の保存先を準備中です。Cloudflare D1 を接続すると、この地震への投稿がここに表示されます。</div>';
+      }
+    }
+    async function refreshQuake() {
+      try {
+        const response = await fetch(QUAKES_URL,{cache:'no-store'});
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const items = await response.json();
+        recentQuakes = items.filter(item => item.code === 551 && item.earthquake && item.earthquake.maxScale > 0);
+        renderQuakeList(recentQuakes);
+        const latest = recentQuakes[0];
+        if (!latest) throw new Error('No recent quake');
+        const changed = quake?.id !== latest.id;
+        quake = latest;
+        const eq = latest.earthquake, hypo = eq.hypocenter || {}, scale = Number(eq.maxScale);
+        const tsunami = {None:'津波の心配なし',Unknown:'津波情報を確認中',Warning:'津波注意報・警報を確認してください'}[eq.domesticTsunami] || '津波情報：発表なし';
+        const points = Array.isArray(latest.points) ? [...latest.points].sort((a,b) => Number(b.scale) - Number(a.scale)) : [];
+        const observed = points.slice(0, 6);
+        document.getElementById('quakeStatus').textContent = `最新100件 · ${recentQuakes.length}件を地図に表示 · 約1分ごとに更新`;
+        document.getElementById('quakeCard').innerHTML = `<span class="text-[10px] text-[#748078]">最新の地震 · ${escapeHtml(eq.time || latest.time || '')}</span><div class="my-1.5 text-[17px] font-bold">${escapeHtml(hypo.name || '震源情報')}</div><div class="text-[11px] leading-[1.7] text-[#647168]"><span class="mr-1.5 inline-grid h-[30px] min-w-[38px] place-items-center rounded-full px-[7px] font-extrabold text-[#17231c] ${scaleTones[scale] || 'bg-[#d5ddd6]'}">最大震度 ${escapeHtml(scaleLabels[scale] || '不明')}</span>M${escapeHtml(hypo.magnitude ?? '—')} · 深さ ${escapeHtml(hypo.depth ?? '—')} km</div><div class="mt-2 text-[11px] font-bold text-[#536159]">${escapeHtml(tsunami)}</div>${observed.length ? `<div class="mt-2 border-t border-[#dce4db] pt-2"><strong class="text-[10px]">各地の震度</strong><div class="mt-1 grid grid-cols-2 gap-x-2 gap-y-1">${observed.map(point => `<span class="flex min-w-0 justify-between gap-1 text-[9px] text-[#647168]"><span class="truncate">${escapeHtml(point.pref || '')} ${escapeHtml(point.addr || '')}</span><b class="flex-none">震度${escapeHtml(scaleLabels[point.scale] || '不明')}</b></span>`).join('')}</div>${points.length > observed.length ? `<small class="mt-1 block text-[9px] text-[#748078]">ほか ${points.length - observed.length} 地点</small>` : ''}</div>` : ''}`;
+        if (mapStyleReady) showQuakesOnMap(recentQuakes);
+        if (changed) await loadPosts(latest.id);
+      } catch (error) {
+        document.getElementById('quakeStatus').textContent = '最新の地震情報を取得できませんでした';
+        console.warn('P2P Quake API error:',error);
+      }
+    }
+    document.getElementById('postForm').addEventListener('submit',async event => {
+      event.preventDefault();
+      const button = document.getElementById('submitButton');
+      const notice = document.getElementById('notice');
+      const body = document.getElementById('message').value.trim();
+      if (!quake) { notice.textContent = '地震情報を読み込んでから投稿できます。'; return; }
+      if (!body) { notice.textContent = 'ひとこと入力してください。'; return; }
+      if (!selectedLocation) { notice.textContent = '地図で投稿場所を選んでください。'; return; }
+      button.disabled = true;
+      notice.textContent = '投稿しています…';
+      try {
+        const response = await fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({quakeId:quake.id,quakeTitle:quake.earthquake?.hypocenter?.name || '震源情報',nickname:document.getElementById('nickname').value.trim() || '匿名',mood:selectedMood,body,latitude:selectedLocation.latitude,longitude:selectedLocation.longitude})});
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || '投稿できませんでした');
+        document.getElementById('message').value = '';
+        selectedLocation = null;
+        selectionMarker?.remove();
+        selectionMarker = null;
+        document.getElementById('locationButton').textContent = '⌖ 地図で場所を選ぶ';
+        document.getElementById('locationStatus').textContent = '投稿場所を地図上で指定してください';
+        notice.textContent = '投稿しました。声を届けてくれてありがとう。';
+        await loadPosts(quake.id);
+      } catch (error) { notice.textContent = error.message || '投稿できませんでした。Cloudflareの設定を確認してください。'; }
+      finally { button.disabled = false; }
+    });
+    initializeMap().catch(error => {
+      document.getElementById('quakeStatus').textContent = '地図を読み込めませんでした';
+      console.error('GSI vector map error:', error);
+    });
+    refreshQuake();
+    setInterval(refreshQuake,60000);
+  </script>
+</body>
+</html>
+

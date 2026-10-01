@@ -1,0 +1,10 @@
+﻿{
+  "name": "yuretane",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": ".", "binding": "ASSETS" },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "yuretane-db", "migrations_dir": "migrations" }
+  ]
+}
+

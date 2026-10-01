@@ -24,6 +24,7 @@ const json = (data, status = 200, request) => new Response(JSON.stringify(data),
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    try {
     if (url.pathname === "/api/posts" && request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders(request) });
     }
@@ -58,6 +59,11 @@ export default {
     }
     if (url.pathname.startsWith("/api/")) return json({ error: "Not found" }, 404, request);
     return env.ASSETS.fetch(request);
+    } catch (error) {
+      console.error("Yuretane request failed:", error);
+      if (url.pathname.startsWith("/api/")) return json({ error: "投稿APIでエラーが発生しました。Workerログを確認してください。" }, 500, request);
+      throw error;
+    }
   },
 };
 
